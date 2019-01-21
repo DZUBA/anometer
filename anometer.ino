@@ -1,11 +1,16 @@
+#include <Ethernet.h>
+
 
 // include the SD library:
 #include <SPI.h>
 #include <SD.h>
+#include <Wire.h>
+#include <TimeLib.h>
+#include <DS1307RTC.h>
 
 //Setup Variables
 
-const int sensorPin = A0; //Defines the pin that the anemometer output is connected to
+const int sensorPin = A0; //Defines the pin that the anemometer output is connected tou
 int sensorValue = 0; //Variable stores the value direct from the analog pin
 float sensorVoltage = 0; //Variable that stores the voltage (in Volts) from the anemometer being sent to the analog pin
 float windSpeed = 0; // Wind speed in meters per second (m/s)
@@ -26,29 +31,21 @@ File myFile;
 
 const int pinCS = 4;
 
-void setup() 
-{              
+void setup()
+{
   Serial.begin(9600);  //Start the serial connection
 
   pinMode(pinCS, OUTPUT);
-  
-  // SD Card Initialization
-  if (SD.begin())
-  {
-    Serial.println("SD card is ready to use.");
-  } else
-  {
-    Serial.println("SD card initialization failed");
-    return;
-  }  
 }
 
-void loop() 
-{  
+void loop()
+{
+  tmElements_t tm;
+
   sensorValue = analogRead(sensorPin); //Get a value between 0 and 1023 from the analog pin connected to the anemometer
-  
+
   sensorVoltage = sensorValue * voltageConversionConstant; //Convert sensor value to actual voltage
-  
+
   //Convert voltage value to wind speed using range of max and min voltages and wind speed for the anemometer
   if (sensorVoltage <= voltageMin){
    windSpeed = 0; //Check if voltage is below minimum value. If so, set wind speed to zero.
@@ -57,26 +54,36 @@ void loop()
   }
 
   myFile = SD.open("test.txt", FILE_WRITE);
-  
-  if (myFile) {    
+
+  if (myFile) {
+    if (RTC.read(tm)) {
+      print2digits(tm.Hour);
+      myFile.write(':');
+      print2digits(tm.Minute);
+      myFile.write(':');
+      print2digits(tm.Second);
+      myFile.print(tm.Day);
+      myFile.write('/');
+      myFile.print(tm.Month);
+      myFile.write('/');
+      myFile.print(tmYearToCalendar(tm.Year));
+    }
     myFile.print("Voltage: ");
-    myFile.print(sensorVoltage);    
-    myFile.print("\t");
+    myFile.print(sensorVoltage);
     myFile.print("Wind speed: ");
     myFile.println(windSpeed);
     myFile.close(); // close the file
   }
   // if the file didn't open, print an error:
   else {
-    Serial.println("error opening test.txt");
+    myFile.println("error opening test.txt");
   }
-  
- //Print voltage and windspeed to serial
-  Serial.print("Voltage: ");
-  Serial.print(sensorVoltage);
-  Serial.print("\t"); 
-  Serial.print("Wind speed: ");
-  Serial.println(windSpeed); 
- 
- delay(sensorDelay);
+ delay(300);
+}
+
+void print2digits(int number) {
+  if (number >= 0 && number < 10) {
+    myFile.write('0');
+  }
+  myFile.print(number);
 }
